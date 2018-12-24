@@ -46,19 +46,24 @@ void draw_boxes( cairo_t *cr, int width, int height );
 
 void draw_maze( cairo_t *cr, int width, int height );
 
+void tree_path( cairo_t *cr );
+void draw_forest( cairo_t *cr, int width, int height );
+
 
 
 void star_path (cairo_t *cr);
 
-#define WIDTH 2000
-#define HEIGHT 1200
+#define WIDTH 4000
+#define HEIGHT 3000
 #define STRIDE (WIDTH * 4)
 
 unsigned char image[STRIDE*HEIGHT];
 
-int
-main (void)
-{
+int main( void ){
+
+    /* initialize random seed: */
+    srand( time(NULL) );
+
     cairo_surface_t *surface;
     cairo_t *cr;
 
@@ -73,13 +78,15 @@ main (void)
 
     //draw_stars (cr, WIDTH, HEIGHT);
     //draw_boxes( cr, WIDTH, HEIGHT );
-    draw_maze( cr, WIDTH, HEIGHT );
+    //draw_maze( cr, WIDTH, HEIGHT );
+    draw_forest( cr, WIDTH, HEIGHT );
 
-    cairo_surface_write_to_png (surface, "maze.png");
+    cairo_surface_write_to_png (surface, "forest.png");
     cairo_destroy (cr);
     cairo_surface_destroy (surface);
 
     return 0;
+
 }
 
 
@@ -166,8 +173,7 @@ void draw_maze( cairo_t *cr, int width, int height ){
     cairo_set_line_width (cr, 2);
 
 
-    /* initialize random seed: */
-    srand( time(NULL) );
+
 
 
     int move_number = 0;
@@ -218,3 +224,50 @@ void draw_maze( cairo_t *cr, int width, int height ){
 
 
 
+
+void tree_path( cairo_t *cr ){
+
+
+    cairo_move_to( cr, 0, 0 );
+
+    cairo_rel_line_to( cr, 12, 24 );
+    cairo_rel_line_to( cr, -10, 0 );
+    cairo_rel_line_to( cr, 0, 4 );
+
+    cairo_rel_line_to( cr, -4, 0 );
+    cairo_rel_line_to( cr, 0, -4 );
+    cairo_rel_line_to( cr, -9, 0 );
+
+    cairo_close_path( cr );
+
+}
+
+
+
+void draw_forest(cairo_t *cr, int width, int height){
+
+    for( int x = 0; x < 500; x++ ){
+
+        int x_pos = rand() % width;
+        int y_pos = rand() % height * .666 + height / 3;
+
+        int scale = rand() % 15 + 1;
+        int colour = rand() % 200 + 55 ;
+
+        cout << colour << endl;
+
+        cairo_set_source_rgb(cr, 0, (double)colour / 255, 0);
+
+        cairo_save (cr);
+        {            
+            cairo_translate (cr, x_pos, y_pos);
+            cairo_scale (cr, scale, scale);
+            tree_path (cr);
+            cairo_set_fill_rule (cr, CAIRO_FILL_RULE_WINDING);
+            cairo_fill (cr);
+        }
+        cairo_restore (cr);
+
+    }
+
+}

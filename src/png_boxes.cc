@@ -249,7 +249,7 @@ void draw_forest(cairo_t *cr, int width, int height){
     for( int x = 0; x < 500; x++ ){
 
         int x_pos = rand() % width;
-        int y_pos = rand() % height * .666 + height / 3;
+        int y_pos = rand() % height * .75 + height / 4;
 
         int scale = rand() % 15 + 1;
         int colour = rand() % 200 + 55 ;

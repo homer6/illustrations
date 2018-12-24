@@ -31,15 +31,27 @@
 #include <cairo/cairo.h>
 #include <math.h>
 
+#include <cstdlib>
+#include <time.h>
+
+#include <iostream>
+
+using std::cout;
+using std::endl;
+
+
 void draw_stars (cairo_t *cr, int width, int height);
 
 void draw_boxes( cairo_t *cr, int width, int height );
 
+void draw_maze( cairo_t *cr, int width, int height );
+
+
 
 void star_path (cairo_t *cr);
 
-#define WIDTH 1200
-#define HEIGHT 800
+#define WIDTH 2000
+#define HEIGHT 1200
 #define STRIDE (WIDTH * 4)
 
 unsigned char image[STRIDE*HEIGHT];
@@ -60,9 +72,10 @@ main (void)
     cairo_fill (cr);
 
     //draw_stars (cr, WIDTH, HEIGHT);
-    draw_boxes( cr, WIDTH, HEIGHT );
+    //draw_boxes( cr, WIDTH, HEIGHT );
+    draw_maze( cr, WIDTH, HEIGHT );
 
-    cairo_surface_write_to_png (surface, "stars.png");
+    cairo_surface_write_to_png (surface, "maze.png");
     cairo_destroy (cr);
     cairo_surface_destroy (surface);
 
@@ -131,16 +144,77 @@ void draw_boxes( cairo_t *cr, int width, int height ){
     }
 
 
-/*
-//cairo_rectangle is equivalient to:
-cairo_move_to (cr, 12, 12);
-cairo_rel_line_to (cr, width, 0);
-cairo_rel_line_to (cr, 0, height);
-cairo_rel_line_to (cr, -width, 0);
-cairo_close_path (cr);
-*/
+    /*
+    //cairo_rectangle is equivalient to:
+    cairo_move_to (cr, 12, 12);
+    cairo_rel_line_to (cr, width, 0);
+    cairo_rel_line_to (cr, 0, height);
+    cairo_rel_line_to (cr, -width, 0);
+    cairo_close_path (cr);
+    */
 
-    //cairo_set_source_rgb (cr, 0, 0.7, 0); 
-    //cairo_fill_preserve (cr);
+        //cairo_set_source_rgb (cr, 0, 0.7, 0); 
+        //cairo_fill_preserve (cr);
 
 }
+
+
+
+void draw_maze( cairo_t *cr, int width, int height ){
+
+    cairo_set_source_rgba (cr, 0, 0, 0, 1);
+    cairo_set_line_width (cr, 2);
+
+
+    /* initialize random seed: */
+    srand( time(NULL) );
+
+
+    int move_number = 0;
+
+    //center on map
+    int current_x = width / 2;
+    int current_y = height / 2;
+
+    
+    cairo_move_to( cr, current_x, current_y );
+
+
+    int total_moves = 100000;
+
+    while( move_number < total_moves ){
+
+        int horizontal_direction = rand() % 3 - 1 ;
+        int verical_direction = rand() % 3 - 1 ;
+
+        int horizontal_weight = rand() % 25 + 1;
+        int verical_weight = rand() % 25 + 1 ;
+
+        move_number++;
+
+        current_x += horizontal_direction * horizontal_weight;
+        current_y += verical_direction * verical_weight;
+
+        //int colour_number = ((double)move_number / (double)total_moves) * 255;
+        //cairo_set_source_rgba(cr, colour_number, colour_number, colour_number, 1);
+        //cout << current_x << "," << current_y << "," << colour_number << endl;
+
+        cairo_rel_line_to( cr, horizontal_direction * horizontal_weight, verical_direction * verical_weight );
+        //cairo_close_path (cr);
+        //cairo_stroke( cr );
+        
+        if( current_x > width ) break;
+        if( current_x < 0 ) break;
+        if( current_y > height ) break;
+        if( current_y < 0 ) break;
+
+    }
+
+    //cairo_close_path (cr);
+    cairo_stroke( cr );
+
+}
+
+
+
+

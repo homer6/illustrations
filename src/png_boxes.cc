@@ -77,11 +77,11 @@ int main( void ){
     cairo_fill (cr);
 
     //draw_stars (cr, WIDTH, HEIGHT);
-    //draw_boxes( cr, WIDTH, HEIGHT );
+    draw_boxes( cr, WIDTH, HEIGHT );
     //draw_maze( cr, WIDTH, HEIGHT );
-    draw_forest( cr, WIDTH, HEIGHT );
+    //draw_forest( cr, WIDTH, HEIGHT );
 
-    cairo_surface_write_to_png (surface, "forest.png");
+    cairo_surface_write_to_png (surface, "boxes.png");
     cairo_destroy (cr);
     cairo_surface_destroy (surface);
 
@@ -139,9 +139,9 @@ void draw_boxes( cairo_t *cr, int width, int height ){
 
     cairo_set_line_width (cr, 2);
 
-    for( int x = 10; x < width - 10; x += 30 ){
+    for( int x = 10; x < width - 10; x += 20 ){
 
-        for( int y = 10; y < height - 10; y += 30 ){
+        for( int y = 10; y < height - 10; y += 20 ){
 
             cairo_rectangle (cr, x, y, 20, 20);
             cairo_stroke (cr);

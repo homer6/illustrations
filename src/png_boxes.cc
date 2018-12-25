@@ -39,6 +39,8 @@
 
 #include <stdexcept>
 
+#include <algorithm>
+
 using std::vector;
 
 
@@ -66,7 +68,7 @@ void draw_maze( cairo_t *cr, int width, int height );
 void star_path (cairo_t *cr);
 
 #define WIDTH 4000
-#define HEIGHT 3000
+#define HEIGHT 4000
 #define STRIDE (WIDTH * 4)
 
 unsigned char image[STRIDE*HEIGHT];
@@ -291,8 +293,8 @@ void draw_forest(cairo_t *cr, int width, int height){
 
 struct Cell{
 
-    Cell( cairo_t *cr, int x = 0, int y = 0 )
-        :cr(cr), x(x), y(y)
+    Cell( cairo_t *cr, int x = 0, int y = 0, int cell_size = 100 )
+        :cr(cr), x(x), y(y), size(cell_size)
     {
 
 
@@ -301,12 +303,14 @@ struct Cell{
     cairo_t *cr;
     int x = 0;
     int y = 0;
-    int size = 50;
+    int size = 100;
 
     int boundary_cell = false;
 
     bool entrance_cell = false;
     bool exit_cell = false;
+
+    bool premature_fork_halt = false;
 
     bool isBoundary(){
         return this->boundary_cell;
@@ -389,8 +393,8 @@ struct Cell{
 
 struct Grid{
 
-    Grid( cairo_t *cr, int width = 10, int height = 10 )
-        :cr(cr), width(width), height(height)
+    Grid( cairo_t *cr, int width = 10, int height = 10, int cell_size = 100, int fork_after = 10, int thread_length = 10 )
+        :cr(cr), width(width), height(height), cell_size(cell_size), fork_after(fork_after), thread_length(thread_length)
     {
 
         for( int x = 0; x < this->width; x++ ){
@@ -399,7 +403,7 @@ struct Grid{
 
             for( int y = 0; y < this->height; y++ ){
 
-                Cell current_cell{cr,x,y};
+                Cell current_cell{cr,x,y,cell_size};
                 if( x == 0 ) current_cell.boundary_cell = true;
                 if( y == 0 ) current_cell.boundary_cell = true;
                 if( x == this->width - 1 ) current_cell.boundary_cell = true;
@@ -609,56 +613,146 @@ struct Grid{
 
 
 
-    bool moveNext(){
+    bool moveNext( int fork_length = -1 ){
 
-        int tries = 0;
+        cout << "moveNext: " << this->current_cell->x << ", " << this->current_cell->y << " fork_length: " << fork_length << endl;
 
-        bool failed_up = false;
-        bool failed_right = false;
-        bool failed_down = false;
-        bool failed_left = false;
+        vector<int> possible_moves = this->getPossibleMoves();  //randomized
 
-        //Cell *previous_cell = this->current_cell;
+        if( possible_moves.size() == 0 ){
 
-        while( tries < 100 ){
+            if( fork_length > -1 ){
+                this->unwind();
+                this->moveNext( fork_length - 1 );
+                return false;  //end recursion; no possible moves; not premature_fork_halt
+            }
 
-            int next_direction = rand() % 4;
+            //dead end (on primary thread); move back
+            return this->unwind();
+        }
 
-            if( next_direction == 0 ){
-                if( this->moveUp() ){
-                    return true;
+
+        if( fork_length > -1 ){
+            //this is a forked thread (recursion)
+
+            if( fork_length == 0 ){
+                this->current_cell->premature_fork_halt = true;
+                return false;
+            }else{
+
+                int next_direction = possible_moves[1];
+
+                if( next_direction == 0 ){
+                    if( this->moveUp() ){
+                        this->moveNext( fork_length - 1 );  //recursion
+                        return false;
+                    }
                 }
-                failed_up = true;
-            }
 
-            if( next_direction == 1 ){
-                if( this->moveRight() ){
-                    return true;
+                if( next_direction == 1 ){
+                    if( this->moveRight() ){
+                        this->moveNext( fork_length - 1 );  //recursion
+                        return false;
+                    }
                 }
-                failed_right = true;
-            }
 
-            if( next_direction == 2 ){
-                if( this->moveDown() ){
-                    return true;
+                if( next_direction == 2 ){
+                    if( this->moveDown() ){
+                        this->moveNext( fork_length - 1 );  //recursion
+                        return false;
+                    }
                 }
-                failed_down = true;
-            }
 
-            if( next_direction == 3 ){
-                if( this->moveLeft() ){
-                    return true;
+                if( next_direction == 3 ){
+                    if( this->moveLeft() ){
+                        this->moveNext( fork_length - 1 );  //recursion
+                        return false;
+                    }
                 }
-                failed_left = true;
+                
+                this->unwind();
+                return false;
             }
 
-            tries++;
+        }
 
-            if( failed_up && failed_right && failed_down && failed_left ){
-                //dead end; move back                
-                return this->unwind();
+
+        //the remainder is for main thread only
+
+        bool can_fork = possible_moves.size() > 1;
+
+        if( this->cell_stack.size() % this->fork_after == 0 ){
+            //every 10th cell, fork (by default)
+
+            if( this->ready_to_fork == false ){
+                this->ready_to_fork = true;
             }
 
+        }
+
+
+        int next_direction;
+
+        if( this->ready_to_fork && can_fork ){
+            //fork here
+            int forked_direction = possible_moves[0];
+            this->ready_to_fork = false;
+
+            Cell* saved_cell = this->current_cell;
+            stack<Cell*> saved_stack = this->cell_stack;
+
+            //recursion
+            next_direction = possible_moves[1];
+
+            if( next_direction == 0 ) this->moveUp();
+            if( next_direction == 1 ) this->moveRight();
+            if( next_direction == 2 ) this->moveDown();
+            if( next_direction == 3 ) this->moveLeft();
+
+            this->moveNext( this->thread_length );
+
+            //restore cell before continuing with main thread
+            this->current_cell = saved_cell;
+            this->cell_stack = saved_stack;
+
+            //fall through to main thread after returning from forking
+
+        }
+
+
+        //check again for possible moves because the forked thread may have used it
+        possible_moves = this->getPossibleMoves();
+
+        if( possible_moves.size() == 0 ){
+            //dead end
+            return this->unwind();
+        }
+
+        next_direction = possible_moves[0];
+        
+
+        if( next_direction == 0 ){
+            if( this->moveUp() ){
+                return true;
+            }
+        }
+
+        if( next_direction == 1 ){
+            if( this->moveRight() ){
+                return true;
+            }
+        }
+
+        if( next_direction == 2 ){
+            if( this->moveDown() ){
+                return true;
+            }
+        }
+
+        if( next_direction == 3 ){
+            if( this->moveLeft() ){
+                return true;
+            }
         }
 
         return false;
@@ -691,12 +785,53 @@ struct Grid{
 
     bool canMove(){
 
+        if( this->canMoveUp() ) return true;
+        if( this->canMoveRight() ) return true;
+        if( this->canMoveDown() ) return true;
+        if( this->canMoveLeft() ) return true;
+
+        return false;
+
+    };
+
+
+    bool canFork(){
+
+        return this->getPossibleMoves().size() > 1;
+
+    };
+
+
+    vector<int> getPossibleMoves(){
+
+        vector<int> possible_moves;
+
+        if( this->canMoveUp() ) possible_moves.push_back(0);
+        if( this->canMoveRight() ) possible_moves.push_back(1);
+        if( this->canMoveDown() ) possible_moves.push_back(2);
+        if( this->canMoveLeft() ) possible_moves.push_back(3);
+
+        std::random_shuffle( possible_moves.begin(), possible_moves.end() );
+
+        return possible_moves;
+
+    };
+
+
+    bool canMoveUp(){
+
         if( this->hasCellUp() ){
             Cell *up_cell = this->getCell( this->current_cell->x, this->current_cell->y - 1 );
             if( !up_cell->isOccupied() ){
                 return true;
             }
         }
+        return false;
+        
+    };
+
+
+    bool canMoveRight(){
 
         if( this->hasCellRight() ){
             Cell *right_cell = this->getCell( this->current_cell->x + 1, this->current_cell->y );
@@ -704,6 +839,12 @@ struct Grid{
                 return true;
             }
         }
+        return false;
+        
+    };
+
+
+    bool canMoveDown(){
 
         if( this->hasCellDown() ){
             Cell *down_cell = this->getCell( this->current_cell->x, this->current_cell->y + 1 );
@@ -711,6 +852,12 @@ struct Grid{
                 return true;
             }
         }
+        return false;
+        
+    };
+
+
+    bool canMoveLeft(){
 
         if( this->hasCellLeft() ){
             Cell *left_cell = this->getCell( this->current_cell->x - 1, this->current_cell->y );
@@ -718,10 +865,10 @@ struct Grid{
                 return true;
             }
         }
-
         return false;
 
     };
+
 
 
 
@@ -747,10 +894,51 @@ struct Grid{
 
     void generateMaze(){
 
-        this->enterMaze( 0, 5 );
+        this->enterMaze( 5, 0 );
         while( this->moveNext() ){
-            //done
+            //done main thread
         }
+
+        //continue any of the premature_forks
+        int premature_forks_count = 0;
+
+        do{
+
+            premature_forks_count = 0;
+
+            for( int x = 0; x < this->width; x++ ){
+
+                for( int y = 0; y < this->height; y++ ){
+
+                    Cell* this_cell = this->getCell( x, y );
+
+                    if( this_cell->premature_fork_halt ){
+
+                        premature_forks_count++;
+
+                        this_cell->premature_fork_halt = false;
+
+                        this->cell_stack.empty();
+
+                        //clear the stack
+                        while( !this->cell_stack.empty() ){
+                            this->cell_stack.pop();
+                        }
+                        
+                        this->cell_stack.push( this_cell );
+                        this->current_cell = this_cell;
+                        while( this->moveNext() ){
+                            //treat this premature_fork_halt as a main thread
+                        }
+
+                    }
+
+                }
+                
+            }
+
+        }while( premature_forks_count > 0 );
+
 
     };
 
@@ -759,7 +947,11 @@ struct Grid{
 
     stack<Cell*> cell_stack;
 
+    bool ready_to_fork = false;
 
+    int cell_size = 100;
+    int fork_after = 10;
+    int thread_length = 10;
 
 };
 
@@ -768,9 +960,9 @@ struct Grid{
 void draw_maze(cairo_t *cr, int width, int height){
 
 
-    cairo_translate( cr, 200, 200 );
+    cairo_translate( cr, 100, 100 );
 
-    Grid grid( cr, 50, 50 );
+    Grid grid( cr, 100, 100, 35, 15, 10 );
     grid.generateMaze();
     grid.print();
 

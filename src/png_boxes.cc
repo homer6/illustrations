@@ -35,6 +35,16 @@
 #include <time.h>
 
 #include <iostream>
+#include <vector>
+
+#include <stdexcept>
+
+using std::vector;
+
+
+#include <stack>
+using std::stack;
+
 
 using std::cout;
 using std::endl;
@@ -44,11 +54,13 @@ void draw_stars (cairo_t *cr, int width, int height);
 
 void draw_boxes( cairo_t *cr, int width, int height );
 
-void draw_maze( cairo_t *cr, int width, int height );
+void draw_random_walk( cairo_t *cr, int width, int height );
 
 void tree_path( cairo_t *cr );
 void draw_forest( cairo_t *cr, int width, int height );
 
+
+void draw_maze( cairo_t *cr, int width, int height );
 
 
 void star_path (cairo_t *cr);
@@ -77,11 +89,13 @@ int main( void ){
     cairo_fill (cr);
 
     //draw_stars (cr, WIDTH, HEIGHT);
-    draw_boxes( cr, WIDTH, HEIGHT );
-    //draw_maze( cr, WIDTH, HEIGHT );
+    //draw_boxes( cr, WIDTH, HEIGHT );
+    //draw_random_walk( cr, WIDTH, HEIGHT );
     //draw_forest( cr, WIDTH, HEIGHT );
 
-    cairo_surface_write_to_png (surface, "boxes.png");
+    draw_maze( cr, WIDTH, HEIGHT );
+
+    cairo_surface_write_to_png (surface, "maze.png");
     cairo_destroy (cr);
     cairo_surface_destroy (surface);
 
@@ -167,7 +181,7 @@ void draw_boxes( cairo_t *cr, int width, int height ){
 
 
 
-void draw_maze( cairo_t *cr, int width, int height ){
+void draw_random_walk( cairo_t *cr, int width, int height ){
 
     cairo_set_source_rgba (cr, 0, 0, 0, 1);
     cairo_set_line_width (cr, 2);
@@ -269,5 +283,504 @@ void draw_forest(cairo_t *cr, int width, int height){
         cairo_restore (cr);
 
     }
+
+}
+
+
+
+
+struct Cell{
+
+    Cell( cairo_t *cr, int x = 0, int y = 0 )
+        :cr(cr), x(x), y(y)
+    {
+
+
+    }
+
+    cairo_t *cr;
+    int x = 0;
+    int y = 0;
+    int size = 50;
+
+    int boundary_cell = false;
+
+    bool entrance_cell = false;
+    bool exit_cell = false;
+
+    bool isBoundary(){
+        return this->boundary_cell;
+    }
+
+
+    int occupied = false;
+
+    bool isOccupied(){
+        return this->occupied;
+    }
+
+    void print(){
+
+        //cairo_move_to( this->cr, x * this->size, y * this->size );
+
+        if( this->boundary_cell ){
+            cairo_set_source_rgb(cr, 1, 0, 0);
+        }else{
+            cairo_set_source_rgb(cr, 0, 0, 0);
+        }
+
+
+        if( this->top == nullptr && !this->entrance_cell ){
+            cairo_move_to( this->cr, x * this->size, y * this->size );
+            cairo_rel_line_to( this->cr, this->size, 0 );
+            cairo_stroke( this->cr );
+        }
+
+        if( this->right == nullptr ){
+            cairo_move_to( this->cr, (x + 1) * this->size, y * this->size );
+            cairo_rel_line_to( this->cr, 0, this->size );
+            cairo_stroke( this->cr );
+        }
+
+        if( this->bottom == nullptr && !this->exit_cell ){
+            cairo_move_to( this->cr, x * this->size, (y + 1) * this->size );
+            cairo_rel_line_to( this->cr, this->size, 0 );
+            cairo_stroke( this->cr );
+        }
+
+        if( this->left == nullptr ){
+            cairo_move_to( this->cr, x * this->size, y * this->size );
+            cairo_rel_line_to( this->cr, 0, this->size );
+            cairo_stroke( this->cr );
+        }
+
+        //cairo_rectangle( this->cr, this->x * this->size, this->y * this->size, this->size, this->size );
+        //cairo_stroke( this->cr );
+
+    };
+
+
+    bool hasTop(){ 
+        return this->top != nullptr; 
+    };
+
+    bool hasRight(){ 
+        return this->right != nullptr; 
+    };
+
+    bool hasBottom(){ 
+        return this->bottom != nullptr; 
+    };
+    
+    bool hasLeft(){ 
+        return this->left != nullptr; 
+    };
+
+    Cell* top = nullptr;
+    Cell* right = nullptr;
+    Cell* bottom = nullptr;
+    Cell* left = nullptr;
+
+};
+
+
+
+
+
+struct Grid{
+
+    Grid( cairo_t *cr, int width = 10, int height = 10 )
+        :cr(cr), width(width), height(height)
+    {
+
+        for( int x = 0; x < this->width; x++ ){
+
+            vector<Cell> column;
+
+            for( int y = 0; y < this->height; y++ ){
+
+                Cell current_cell{cr,x,y};
+                if( x == 0 ) current_cell.boundary_cell = true;
+                if( y == 0 ) current_cell.boundary_cell = true;
+                if( x == this->width - 1 ) current_cell.boundary_cell = true;
+                if( y == this->height - 1 ) current_cell.boundary_cell = true;
+
+                if( x == 5 && y == 0 ) current_cell.entrance_cell = true;
+                if( x == (this->width - 6) && y == (this->height - 1) ) current_cell.exit_cell = true;
+
+                column.push_back( std::move(current_cell) );
+
+            }
+
+            this->grid.push_back( std::move(column) );
+            
+        }
+
+    }
+
+
+    cairo_t *cr;
+
+    int width = 10;
+    int height = 10;
+
+    vector<vector<Cell>> grid;
+
+    
+    void print(){
+
+        cairo_set_source_rgba (cr, 0, 0, 0, 1);
+
+        cairo_set_line_width (cr, 2);
+
+
+        for( auto& column : this->grid ){
+
+            for( auto& cell : column ){
+
+                cell.print();
+
+            }
+
+        }
+
+    };
+
+
+
+    Cell* getCell( int x, int y ){
+
+        if( !this->hasCell(x,y) ){
+            throw std::runtime_error("getCell: Cell not found.");
+        }
+
+        return & this->grid[x][y];
+
+    };
+
+
+    bool hasCell( int x, int y ){
+        if( x >= this->width ) return false;
+        if( x < 0 ) return false;
+        if( y >= this->height ) return false;
+        if( y < 0 ) return false;
+        return true;
+    }
+
+
+
+    bool moveUp(){
+
+        if( this->hasCellUp() ){
+
+            Cell *up_cell = this->getCell( this->current_cell->x, this->current_cell->y - 1 );
+
+            if( !up_cell->isOccupied() ){
+
+                this->current_cell->top = up_cell;
+                up_cell->bottom = this->current_cell;
+
+                up_cell->occupied = true;
+
+                this->current_cell = up_cell;
+
+                this->cell_stack.push( this->current_cell );
+
+                return true;
+
+            }
+
+        }
+
+        return false;
+
+    };
+
+
+
+    bool moveRight(){
+
+        if( this->hasCellRight() ){
+
+            Cell *right_cell = this->getCell( this->current_cell->x + 1, this->current_cell->y );
+
+            if( !right_cell->isOccupied() ){
+
+                this->current_cell->right = right_cell;
+                right_cell->left = this->current_cell;
+
+                right_cell->occupied = true;
+
+                this->current_cell = right_cell;
+
+                this->cell_stack.push( this->current_cell );
+
+                return true;
+
+            }
+
+        }
+
+        return false;
+
+    };
+
+
+
+    bool moveDown(){
+
+        if( this->hasCellDown() ){
+
+            Cell *down_cell = this->getCell( this->current_cell->x, this->current_cell->y + 1 );
+
+            if( !down_cell->isOccupied() ){
+
+                this->current_cell->bottom = down_cell;
+                down_cell->top = this->current_cell;
+
+                down_cell->occupied = true;
+
+                this->current_cell = down_cell;
+
+                this->cell_stack.push( this->current_cell );
+
+                return true;
+
+            }
+
+        }
+
+        return false;
+
+
+    };
+
+
+
+    bool moveLeft(){
+
+        if( this->hasCellLeft() ){
+
+            Cell *left_cell = this->getCell( this->current_cell->x - 1, this->current_cell->y );
+
+            if( !left_cell->isOccupied() ){
+
+                this->current_cell->left = left_cell;
+                left_cell->right = this->current_cell;
+
+                left_cell->occupied = true;
+
+                this->current_cell = left_cell;
+
+                this->cell_stack.push( this->current_cell );
+
+                return true;
+
+            }
+
+        }
+
+        return false;
+
+    };
+
+
+
+
+
+
+    bool hasCellUp(){
+        return this->hasCell( this->current_cell->x, this->current_cell->y - 1 );
+    };
+
+    bool hasCellRight(){
+        return this->hasCell( this->current_cell->x + 1, this->current_cell->y );
+    };
+
+    bool hasCellDown(){
+        return this->hasCell( this->current_cell->x, this->current_cell->y + 1 );
+    };
+
+    bool hasCellLeft(){
+        return this->hasCell( this->current_cell->x - 1, this->current_cell->y );
+    };
+
+
+
+
+
+    bool moveNext(){
+
+        int tries = 0;
+
+        bool failed_up = false;
+        bool failed_right = false;
+        bool failed_down = false;
+        bool failed_left = false;
+
+        //Cell *previous_cell = this->current_cell;
+
+        while( tries < 100 ){
+
+            int next_direction = rand() % 4;
+
+            if( next_direction == 0 ){
+                if( this->moveUp() ){
+                    return true;
+                }
+                failed_up = true;
+            }
+
+            if( next_direction == 1 ){
+                if( this->moveRight() ){
+                    return true;
+                }
+                failed_right = true;
+            }
+
+            if( next_direction == 2 ){
+                if( this->moveDown() ){
+                    return true;
+                }
+                failed_down = true;
+            }
+
+            if( next_direction == 3 ){
+                if( this->moveLeft() ){
+                    return true;
+                }
+                failed_left = true;
+            }
+
+            tries++;
+
+            if( failed_up && failed_right && failed_down && failed_left ){
+                //dead end; move back                
+                return this->unwind();
+            }
+
+        }
+
+        return false;
+
+    };
+
+
+    bool unwind(){
+        //walks back until not stuck; return false if breadcrumb trail is empty
+
+        while( this->cell_stack.size() > 1 ){
+            
+            this->cell_stack.pop();
+
+            Cell* previous_cell = this->cell_stack.top();
+
+            this->current_cell = previous_cell;
+
+            if( this->canMove() ){
+                return true;
+            }
+
+        }
+
+        return false;
+
+    };
+
+
+
+    bool canMove(){
+
+        if( this->hasCellUp() ){
+            Cell *up_cell = this->getCell( this->current_cell->x, this->current_cell->y - 1 );
+            if( !up_cell->isOccupied() ){
+                return true;
+            }
+        }
+
+        if( this->hasCellRight() ){
+            Cell *right_cell = this->getCell( this->current_cell->x + 1, this->current_cell->y );
+            if( !right_cell->isOccupied() ){
+                return true;
+            }
+        }
+
+        if( this->hasCellDown() ){
+            Cell *down_cell = this->getCell( this->current_cell->x, this->current_cell->y + 1 );
+            if( !down_cell->isOccupied() ){
+                return true;
+            }
+        }
+
+        if( this->hasCellLeft() ){
+            Cell *left_cell = this->getCell( this->current_cell->x - 1, this->current_cell->y );
+            if( !left_cell->isOccupied() ){
+                return true;
+            }
+        }
+
+        return false;
+
+    };
+
+
+
+    void enterMaze( int x, int y ){
+
+        if( !this->hasCell(x,y) ){
+            throw std::runtime_error("enterMaze: Cell not found.");
+        }
+
+        Cell *cell = this->getCell( x, y );
+
+        if( !cell->isBoundary() ){
+            throw std::runtime_error("enterMaze: must be a boundary cell.");
+        }
+
+        cell->occupied = true;
+        this->current_cell = cell;
+
+        this->cell_stack.push( cell );
+
+    };
+
+
+    void generateMaze(){
+
+        this->enterMaze( 0, 5 );
+        while( this->moveNext() ){
+            //done
+        }
+
+    };
+
+    Cell* current_cell = nullptr;
+
+
+    stack<Cell*> cell_stack;
+
+
+
+};
+
+
+
+void draw_maze(cairo_t *cr, int width, int height){
+
+
+    cairo_translate( cr, 200, 200 );
+
+    Grid grid( cr, 50, 50 );
+    grid.generateMaze();
+    grid.print();
+
+
+    //int horizontal_direction = rand() % 3 - 1 ;
+    //int verical_direction = rand() % 3 - 1 ;
+
+
+
+
+
 
 }

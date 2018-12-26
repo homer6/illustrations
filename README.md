@@ -28,3 +28,4 @@ This means it'll build a 1000px by 1000px PNG file.
 `cairo_translate` will move the maze by 50px from the left of the page and 50px from the top of the page.
 `Grid grid( cr, 20, 20, 45, 5, 5 );` will create a maze 20 cells wide by 20 cells high. Each cell size will be 45px wide and tall. It'll fork after 7 moves when creating the maze, and each fork length will be 5 moves deep.
 
+So, if you create a 100x100 celled maze (where each cell is 38), you should make sure the whole maze will fit in the 4000x4000 dimensions of the image (with enough room on each sides for your border, which is created by the `cairo_translate` call). To help you make sure you haven't cut off the maze when you print it, the border cells are red.

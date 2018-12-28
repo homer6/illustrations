@@ -67,8 +67,8 @@ void draw_maze( cairo_t *cr, int width, int height );
 
 void star_path (cairo_t *cr);
 
-#define WIDTH 1000
-#define HEIGHT 1000
+#define WIDTH 4000
+#define HEIGHT 4000
 #define STRIDE (WIDTH * 4)
 
 unsigned char image[STRIDE*HEIGHT];
@@ -593,6 +593,88 @@ struct Grid{
 
 
 
+    bool linkUp(){
+
+        if( this->hasCellUp() ){
+
+            Cell *up_cell = this->getCell( this->current_cell->x, this->current_cell->y - 1 );
+
+            this->current_cell->top = up_cell;
+            up_cell->bottom = this->current_cell;
+
+            return true;
+
+        }
+
+        return false;
+
+    };
+
+
+
+    bool linkRight(){
+
+        if( this->hasCellRight() ){
+
+            Cell *right_cell = this->getCell( this->current_cell->x + 1, this->current_cell->y );
+
+            this->current_cell->right = right_cell;
+            right_cell->left = this->current_cell;
+
+            return true;
+
+        }
+
+        return false;
+
+    };
+
+
+
+    bool linkDown(){
+
+        if( this->hasCellDown() ){
+
+            Cell *down_cell = this->getCell( this->current_cell->x, this->current_cell->y + 1 );
+
+            this->current_cell->bottom = down_cell;
+            down_cell->top = this->current_cell;
+
+            return true;
+
+        }
+
+        return false;
+
+
+    };
+
+
+
+    bool linkLeft(){
+
+        if( this->hasCellLeft() ){
+
+            Cell *left_cell = this->getCell( this->current_cell->x - 1, this->current_cell->y );
+
+            this->current_cell->left = left_cell;
+            left_cell->right = this->current_cell;
+
+            return true;
+
+        }
+
+        return false;
+
+    };
+
+
+
+
+
+
+
+
     bool hasCellUp(){
         return this->hasCell( this->current_cell->x, this->current_cell->y - 1 );
     };
@@ -818,6 +900,25 @@ struct Grid{
     };
 
 
+
+    vector<int> getPossibleOccupiedMoves(){
+
+        vector<int> possible_moves;
+
+        if( this->canLinkUp() ) possible_moves.push_back(0);
+        if( this->canLinkRight() ) possible_moves.push_back(1);
+        if( this->canLinkDown() ) possible_moves.push_back(2);
+        if( this->canLinkLeft() ) possible_moves.push_back(3);
+
+        std::random_shuffle( possible_moves.begin(), possible_moves.end() );
+
+        return possible_moves;
+
+    };
+
+
+
+
     bool canMoveUp(){
 
         if( this->hasCellUp() ){
@@ -872,6 +973,65 @@ struct Grid{
 
 
 
+    //linking is when you break through a wall to join an isolated cell
+    //the link target must be present and occupied
+
+    bool canLinkUp(){
+
+        if( this->hasCellUp() ){
+            Cell *up_cell = this->getCell( this->current_cell->x, this->current_cell->y - 1 );
+            if( up_cell->isOccupied() ){
+                return true;
+            }
+        }
+        return false;
+        
+    };
+
+
+    bool canLinkRight(){
+
+        if( this->hasCellRight() ){
+            Cell *right_cell = this->getCell( this->current_cell->x + 1, this->current_cell->y );
+            if( right_cell->isOccupied() ){
+                return true;
+            }
+        }
+        return false;
+        
+    };
+
+
+    bool canLinkDown(){
+
+        if( this->hasCellDown() ){
+            Cell *down_cell = this->getCell( this->current_cell->x, this->current_cell->y + 1 );
+            if( down_cell->isOccupied() ){
+                return true;
+            }
+        }
+        return false;
+        
+    };
+
+
+    bool canLinkLeft(){
+
+        if( this->hasCellLeft() ){
+            Cell *left_cell = this->getCell( this->current_cell->x - 1, this->current_cell->y );
+            if( left_cell->isOccupied() ){
+                return true;
+            }
+        }
+        return false;
+
+    };
+
+
+
+
+
+
     void enterMaze( int x, int y ){
 
         if( !this->hasCell(x,y) ){
@@ -899,45 +1059,103 @@ struct Grid{
             //done main thread
         }
 
+
         //continue any of the premature_forks
-        int premature_forks_count = 0;
+            int premature_forks_count = 0;
 
-        do{
+            do{
 
-            premature_forks_count = 0;
+                premature_forks_count = 0;
 
-            for( int x = 0; x < this->width; x++ ){
+                for( int x = 0; x < this->width; x++ ){
 
-                for( int y = 0; y < this->height; y++ ){
+                    for( int y = 0; y < this->height; y++ ){
 
-                    Cell* this_cell = this->getCell( x, y );
+                        Cell* this_cell = this->getCell( x, y );
 
-                    if( this_cell->premature_fork_halt ){
+                        if( this_cell->premature_fork_halt ){
 
-                        premature_forks_count++;
+                            premature_forks_count++;
 
-                        this_cell->premature_fork_halt = false;
+                            this_cell->premature_fork_halt = false;
 
-                        this->cell_stack.empty();
+                            //clear the stack
+                            while( !this->cell_stack.empty() ){
+                                this->cell_stack.pop();
+                            }
+                            
+                            this->cell_stack.push( this_cell );
+                            this->current_cell = this_cell;
+                            while( this->moveNext() ){
+                                //treat this premature_fork_halt as a main thread
+                            }
 
-                        //clear the stack
-                        while( !this->cell_stack.empty() ){
-                            this->cell_stack.pop();
-                        }
-                        
-                        this->cell_stack.push( this_cell );
-                        this->current_cell = this_cell;
-                        while( this->moveNext() ){
-                            //treat this premature_fork_halt as a main thread
                         }
 
                     }
-
+                    
                 }
-                
-            }
 
-        }while( premature_forks_count > 0 );
+            }while( premature_forks_count > 0 );
+
+
+        //continue any of the premature_forks
+            int unoccupied_count = 0;
+
+            do{
+
+                unoccupied_count = 0;
+
+                for( int x = 0; x < this->width; x++ ){
+
+                    for( int y = 0; y < this->height; y++ ){
+
+                        Cell* this_cell = this->getCell( x, y );
+
+                        if( !this_cell->occupied ){
+
+                            unoccupied_count++;
+
+                            this_cell->occupied = true;
+
+                            //clear the stack
+                                while( !this->cell_stack.empty() ){
+                                    this->cell_stack.pop();
+                                }
+                                
+                                this->cell_stack.push( this_cell );
+                                this->current_cell = this_cell;
+
+                            //link up to the closest occupied cell 
+                                vector<int> possible_moves = this->getPossibleOccupiedMoves();
+
+                                if( possible_moves.size() == 0 ){
+                                    throw std::runtime_error( "No possible linkable cells." );
+                                }
+
+                                int link_direction = possible_moves[0];
+
+                                if( link_direction == 0 ) this->linkUp();
+                                if( link_direction == 1 ) this->linkRight();
+                                if( link_direction == 2 ) this->linkDown();
+                                if( link_direction == 3 ) this->linkLeft();
+
+
+                            //join the rest of the unoccupied adjacent cells
+                            while( this->moveNext() ){
+                                //treat this unoccupied as a main thread
+                            }
+                           
+
+
+                        }
+
+                    }
+                    
+                }
+
+            }while( premature_forks_count > 0 );
+
 
 
     };
@@ -968,12 +1186,12 @@ void draw_maze(cairo_t *cr, int width, int height){
     //Grid grid( cr, 60, 60, 62, 15, 10 );
 
     //medium (4000,4000)
-    //cairo_translate( cr, 100, 100 );
-    //Grid grid( cr, 40, 40, 90, 10, 10 );
+    cairo_translate( cr, 100, 100 );
+    Grid grid( cr, 50, 50, 75, 10, 15 );
 
     //easy (1000,1000)
-    cairo_translate( cr, 50, 50 );
-    Grid grid( cr, 20, 20, 45, 5, 5 );
+    //cairo_translate( cr, 50, 50 );
+    //Grid grid( cr, 20, 20, 45, 5, 5 );
 
     //very easy (1000,1000)
     //cairo_translate( cr, 50, 50 );

@@ -1187,7 +1187,7 @@ void draw_maze(cairo_t *cr, int width, int height){
 
     //medium (4000,4000)
     cairo_translate( cr, 100, 100 );
-    Grid grid( cr, 50, 50, 75, 10, 15 );
+    Grid grid( cr, 45, 45, 84, 10, 15 );
 
     //easy (1000,1000)
     //cairo_translate( cr, 50, 50 );

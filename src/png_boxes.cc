@@ -86,6 +86,7 @@ int main(){
         //cells_wide = 60; cells_tall = 45; cell_size = 32; fork_after = 10; thread_length = 15;
     //easy
         cells_wide = 24; cells_tall = 18; cell_size = 35; fork_after = 5; thread_length = 5;
+        cells_wide = 14; cells_tall = 10; cell_size = 50; fork_after = 7; thread_length = 7; border_width = 30;
     //very easy
         //cells_wide = 6; cells_tall = 6; cell_size = 125; fork_after = 3; thread_length = 3;
 

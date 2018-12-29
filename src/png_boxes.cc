@@ -67,8 +67,8 @@ void draw_maze( cairo_t *cr, int width, int height );
 
 void star_path (cairo_t *cr);
 
-#define WIDTH 4000
-#define HEIGHT 4000
+#define WIDTH 1000
+#define HEIGHT 1000
 #define STRIDE (WIDTH * 4)
 
 unsigned char image[STRIDE*HEIGHT];
@@ -1230,12 +1230,12 @@ void draw_maze(cairo_t *cr, int width, int height){
     //Grid grid( cr, 60, 60, 62, 15, 10 );
 
     //medium (4000,3000)
-    cairo_translate( cr, 100, 100 );
-    Grid grid( cr, 60, 45, 63, 10, 15 );
+    //cairo_translate( cr, 100, 100 );
+    //Grid grid( cr, 60, 45, 63, 10, 15 );
 
     //easy (1000,1000)
-    //cairo_translate( cr, 50, 50 );
-    //Grid grid( cr, 20, 20, 45, 5, 5 );
+    cairo_translate( cr, 50, 50 );
+    Grid grid( cr, 24, 18, 35, 5, 5 );
 
     //very easy (1000,1000)
     //cairo_translate( cr, 50, 50 );

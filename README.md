@@ -14,18 +14,16 @@ The new maze will be in maze.png in the current directory.
 ### To change the maze parameters:
 
 1. Open src/png_boxes.cc
-2. Change the WIDTH and HEIGHT at the top, along with the draw_maze() function on line 975.
+2. Change the parameters on line 90
+3. make && ./build/illustrations
 
 For example, 
 
 ```
-    //easy (1000,1000)
-    cairo_translate( cr, 50, 50 );
-    Grid grid( cr, 20, 20, 45, 7, 5 );
+    //very easy
+        cells_wide = 6; cells_tall = 6; cell_size = 125; fork_after = 3; thread_length = 4;
 ```
 
-This means it'll build a 1000px by 1000px PNG file.
-`cairo_translate` will move the maze by 50px from the left of the page and 50px from the top of the page.
-`Grid grid( cr, 20, 20, 45, 5, 5 );` will create a maze 20 cells wide by 20 cells high. Each cell size will be 45px wide and tall. It'll fork after 7 moves when creating the maze, and each fork length will be 5 moves deep.
+It will create a maze 6 cells wide by 6 cells high. Each cell size will be 125px wide and tall. It'll fork after 7 moves when creating the maze, and each fork length (called a thread) will be 4 moves deep.
 
-So, if you create a 100x100 celled maze (where each cell is 38), you should make sure the whole maze will fit in the 4000x4000 dimensions of the image (with enough room on each sides for your border, which is created by the `cairo_translate` call). To help you make sure you haven't cut off the maze when you print it, the border cells are red.
+To help you make sure you haven't cut off the maze when you print it, the border cells are red.

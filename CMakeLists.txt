@@ -8,7 +8,7 @@ include_directories(
 )
 
 set( ILLUSTRATIONS_SOURCES
-    #src/png_boxes.cc
+    src/actions.cc
 )
 
 set( ILLUSTRATIONS_LIBS

@@ -67,8 +67,8 @@ void draw_maze( cairo_t *cr, int width, int height );
 
 void star_path (cairo_t *cr);
 
-#define WIDTH 4000
-#define HEIGHT 4000
+#define WIDTH 10000
+#define HEIGHT 10000
 #define STRIDE (WIDTH * 4)
 
 unsigned char image[STRIDE*HEIGHT];
@@ -488,7 +488,8 @@ struct Grid{
 
                 this->current_cell = up_cell;
 
-                this->cell_stack.push( this->current_cell );
+                this->cell_stack.push_back( this->current_cell );
+                this->walked_list.push_back( this->current_cell );
 
                 return true;
 
@@ -517,7 +518,8 @@ struct Grid{
 
                 this->current_cell = right_cell;
 
-                this->cell_stack.push( this->current_cell );
+                this->cell_stack.push_back( this->current_cell );
+                this->walked_list.push_back( this->current_cell );
 
                 return true;
 
@@ -546,7 +548,8 @@ struct Grid{
 
                 this->current_cell = down_cell;
 
-                this->cell_stack.push( this->current_cell );
+                this->cell_stack.push_back( this->current_cell );
+                this->walked_list.push_back( this->current_cell );
 
                 return true;
 
@@ -576,7 +579,8 @@ struct Grid{
 
                 this->current_cell = left_cell;
 
-                this->cell_stack.push( this->current_cell );
+                this->cell_stack.push_back( this->current_cell );
+                this->walked_list.push_back( this->current_cell );
 
                 return true;
 
@@ -781,7 +785,7 @@ struct Grid{
             this->ready_to_fork = false;
 
             Cell* saved_cell = this->current_cell;
-            stack<Cell*> saved_stack = this->cell_stack;
+            vector<Cell*> saved_stack = this->cell_stack;
 
             //recursion
             next_direction = possible_moves[1];
@@ -847,9 +851,9 @@ struct Grid{
 
         while( this->cell_stack.size() > 1 ){
             
-            this->cell_stack.pop();
+            this->cell_stack.pop_back();
 
-            Cell* previous_cell = this->cell_stack.top();
+            Cell* previous_cell = this->cell_stack.back();
 
             this->current_cell = previous_cell;
 
@@ -901,7 +905,7 @@ struct Grid{
 
 
 
-    vector<int> getPossibleOccupiedMoves(){
+    vector<int> getPossibleLinkableMoves(){
 
         vector<int> possible_moves;
 
@@ -974,13 +978,16 @@ struct Grid{
 
 
     //linking is when you break through a wall to join an isolated cell
-    //the link target must be present and occupied
+    //the link target must be present, occupied, and cannot exist in walked_list
 
     bool canLinkUp(){
 
         if( this->hasCellUp() ){
             Cell *up_cell = this->getCell( this->current_cell->x, this->current_cell->y - 1 );
-            if( up_cell->isOccupied() ){
+
+            auto p = std::find( this->walked_list.begin(), this->walked_list.end(), up_cell );
+
+            if( up_cell->isOccupied() && p == this->walked_list.end() ){
                 return true;
             }
         }
@@ -993,7 +1000,10 @@ struct Grid{
 
         if( this->hasCellRight() ){
             Cell *right_cell = this->getCell( this->current_cell->x + 1, this->current_cell->y );
-            if( right_cell->isOccupied() ){
+
+            auto p = std::find( this->walked_list.begin(), this->walked_list.end(), right_cell );
+
+            if( right_cell->isOccupied() && p == this->walked_list.end() ){
                 return true;
             }
         }
@@ -1006,7 +1016,10 @@ struct Grid{
 
         if( this->hasCellDown() ){
             Cell *down_cell = this->getCell( this->current_cell->x, this->current_cell->y + 1 );
-            if( down_cell->isOccupied() ){
+
+            auto p = std::find( this->walked_list.begin(), this->walked_list.end(), down_cell );
+
+            if( down_cell->isOccupied() && p == this->walked_list.end() ){
                 return true;
             }
         }
@@ -1019,7 +1032,10 @@ struct Grid{
 
         if( this->hasCellLeft() ){
             Cell *left_cell = this->getCell( this->current_cell->x - 1, this->current_cell->y );
-            if( left_cell->isOccupied() ){
+
+            auto p = std::find( this->walked_list.begin(), this->walked_list.end(), left_cell );
+
+            if( left_cell->isOccupied() && p == this->walked_list.end() ){
                 return true;
             }
         }
@@ -1047,7 +1063,8 @@ struct Grid{
         cell->occupied = true;
         this->current_cell = cell;
 
-        this->cell_stack.push( cell );
+        this->cell_stack.push_back( cell );
+        this->walked_list.push_back( cell );
 
     };
 
@@ -1080,12 +1097,13 @@ struct Grid{
                             this_cell->premature_fork_halt = false;
 
                             //clear the stack
-                            while( !this->cell_stack.empty() ){
-                                this->cell_stack.pop();
-                            }
+                            this->cell_stack.clear();
+                            this->walked_list.clear();
                             
-                            this->cell_stack.push( this_cell );
+                            this->cell_stack.push_back( this_cell );
+                            this->walked_list.push_back( this_cell );
                             this->current_cell = this_cell;
+
                             while( this->moveNext() ){
                                 //treat this premature_fork_halt as a main thread
                             }
@@ -1119,33 +1137,52 @@ struct Grid{
                             this_cell->occupied = true;
 
                             //clear the stack
-                                while( !this->cell_stack.empty() ){
-                                    this->cell_stack.pop();
-                                }
-                                
-                                this->cell_stack.push( this_cell );
-                                this->current_cell = this_cell;
+                            this->cell_stack.clear();
+                            this->walked_list.clear();
+                            
+                            this->cell_stack.push_back( this_cell );
+                            this->walked_list.push_back( this_cell );
 
-                            //link up to the closest occupied cell 
-                                vector<int> possible_moves = this->getPossibleOccupiedMoves();
-
-                                if( possible_moves.size() == 0 ){
-                                    throw std::runtime_error( "No possible linkable cells." );
-                                }
-
-                                int link_direction = possible_moves[0];
-
-                                if( link_direction == 0 ) this->linkUp();
-                                if( link_direction == 1 ) this->linkRight();
-                                if( link_direction == 2 ) this->linkDown();
-                                if( link_direction == 3 ) this->linkLeft();
-
+                            this->current_cell = this_cell;
 
                             //join the rest of the unoccupied adjacent cells
                             while( this->moveNext() ){
                                 //treat this unoccupied as a main thread
                             }
-                           
+
+
+
+                            //link up to the closest occupied cell (check all cells in the walked list)
+
+                            bool has_linked = false;
+
+                            for( Cell* active_cell : this->walked_list ){
+
+                                if( has_linked ){
+                                    break;
+                                }
+
+                                this->current_cell = active_cell;
+
+                                vector<int> possible_moves = this->getPossibleLinkableMoves();
+
+                                if( possible_moves.size() > 0 ){
+                                    has_linked = true;
+
+                                    int link_direction = possible_moves[0];
+
+                                    if( link_direction == 0 ) this->linkUp();
+                                    if( link_direction == 1 ) this->linkRight();
+                                    if( link_direction == 2 ) this->linkDown();
+                                    if( link_direction == 3 ) this->linkLeft();
+
+                                }
+
+                            }
+
+                            if( !has_linked ){
+                                throw std::runtime_error( "No possible linkable cells." );
+                            }
 
 
                         }
@@ -1154,7 +1191,7 @@ struct Grid{
                     
                 }
 
-            }while( premature_forks_count > 0 );
+            }while( unoccupied_count > 0 );
 
 
 
@@ -1163,7 +1200,9 @@ struct Grid{
     Cell* current_cell = nullptr;
 
 
-    stack<Cell*> cell_stack;
+    vector<Cell*> cell_stack;
+
+    vector<Cell*> walked_list;
 
     bool ready_to_fork = false;
 
@@ -1177,6 +1216,11 @@ struct Grid{
 
 void draw_maze(cairo_t *cr, int width, int height){
 
+
+    //monster (10000,10000)
+    cairo_translate( cr, 100, 100 );
+    Grid grid( cr, 150, 150, 38, 10, 20 );
+
     //nightmare (6000,6000)
     //cairo_translate( cr, 100, 100 );
     //Grid grid( cr, 300, 300, 19, 25, 20 );
@@ -1186,8 +1230,8 @@ void draw_maze(cairo_t *cr, int width, int height){
     //Grid grid( cr, 60, 60, 62, 15, 10 );
 
     //medium (4000,4000)
-    cairo_translate( cr, 100, 100 );
-    Grid grid( cr, 45, 45, 84, 10, 15 );
+    //cairo_translate( cr, 100, 100 );
+    //Grid grid( cr, 45, 45, 84, 10, 15 );
 
     //easy (1000,1000)
     //cairo_translate( cr, 50, 50 );

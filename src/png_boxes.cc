@@ -75,25 +75,38 @@ int main(){
 
 
 
+    //12 page whale
+        //cells_wide = 1000; cells_tall = 1000; cell_size = 5; fork_after = 10; thread_length = 15; border_width = 30;
 
     //monster-sized
         //cells_wide = 225; cells_tall = 150; cell_size = 32; fork_after = 7; thread_length = 20;
+
     //nightmare
         //cells_wide = 300; cells_tall = 300; cell_size = 32; fork_after = 25; thread_length = 20;
+
     //very hard
         //cells_wide = 60; cells_tall = 60; cell_size = 32; fork_after = 15; thread_length = 10;
+
     //medium
         //cells_wide = 60; cells_tall = 45; cell_size = 32; fork_after = 10; thread_length = 15;
+        //cells_wide = 120; cells_tall = 92; cell_size = 16; fork_after = 10; thread_length = 15; border_width = 20;
+
+    //regular
+        //cells_wide = 44; cells_tall = 34; cell_size = 50; fork_after = 10; thread_length = 15; border_width = 30;
 
     //easy
         //lucas/emily (age 4)
-        cells_wide = 14; cells_tall = 10; cell_size = 50; fork_after = 5; thread_length = 5; border_width = 30;
+        //cells_wide = 14; cells_tall = 10; cell_size = 50; fork_after = 5; thread_length = 5; border_width = 30;
 
         //ben/oliver (age 6)
         cells_wide = 28; cells_tall = 21; cell_size = 50; fork_after = 10; thread_length = 15; border_width = 25;
 
+        //same difficulty as above, only this is a 2up 8.5x11 maze (11x17)
+        //cells_wide = 64; cells_tall = 42; cell_size = 50; fork_after = 10; thread_length = 15; border_width = 25;
+
     //very easy
         //cells_wide = 6; cells_tall = 6; cell_size = 125; fork_after = 3; thread_length = 3;
+
 
 
 
